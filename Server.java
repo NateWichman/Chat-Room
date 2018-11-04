@@ -103,7 +103,7 @@ class ClientThread extends Thread{
 				}else if(receivedMessage.startsWith("/kick")){
 					kickUser(receivedMessage);
 				}else{
-					broadcastMessage("\n" + client.getUserName() + ": " + receivedMessage);
+					broadcastMessage(client.getUserName() + ": " + receivedMessage);
 				}
 			}
 		
@@ -201,6 +201,7 @@ class ClientThread extends Thread{
 	private void sendClientList(Client c){
 		try{
 			out = new PrintWriter(c.getSocket().getOutputStream(), true);
+			out.println("");
 			for(Client c2 : Server.clients){
 				out.println(c2.getUserName());
 			}
