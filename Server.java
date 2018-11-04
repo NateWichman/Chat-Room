@@ -15,6 +15,7 @@ users if they enter a password.
 
 public class Server{
 	public static Vector<Client> clients = new Vector<Client>();
+	public static String adminPassword = "123";
 
 	public static void main(String args[]){
 		/**to hold all connected clients**/
@@ -88,6 +89,7 @@ class ClientThread extends Thread{
 
 			//Receiving messages from the Client
 			while((receivedMessage = in.readLine()) != null){
+				out = new PrintWriter(client.getSocket().getOutputStream(), true);
 				System.out.println(client.getUserName() + ": " + receivedMessage);
 				
 				if(receivedMessage.equals("Exit")){
@@ -96,27 +98,68 @@ class ClientThread extends Thread{
 				}else if(receivedMessage.startsWith("/whisper")){
 					System.out.println(userName + " is trying to whisper");
 					whisperMessage(receivedMessage);
+				}else if(receivedMessage.startsWith("/list")){
+					sendClientList(client);
+				}else if(receivedMessage.startsWith("/kick")){
+					kickUser(receivedMessage);
 				}else{
 					broadcastMessage("\n" + client.getUserName() + ": " + receivedMessage);
 				}
 			}
-
-			in.close();
-			out.close();
+		
 			Server.clients.removeElement(client);
-
+			broadcastMessage("\n" + client.getUserName() + " has disconnected");
 			
 		}catch(IOException e){
-			System.err.println("ERROR handling client");
+			System.err.println("ERROR handling client in method run: " + e);
 		}
 
 	}
-
+	private void kickUser(String message){
+		try{
+			out = new PrintWriter(client.getSocket().getOutputStream(), true);
+			BufferedReader tempIn = new BufferedReader(
+					new InputStreamReader(client.getSocket().getInputStream()));
+			String userName = "";
+			try{
+				int userNameStart = message.indexOf(" ");
+				int userNameEnd = message.indexOf(" ", userNameStart + 1);
+				userName = message.substring(userNameStart + 1, userNameEnd);
+			}catch(IndexOutOfBoundsException e){
+				out.println("Incorrect kick format, use /kick username");
+				return;
+			}
+			System.out.println("Recieved Correct kick command");
+			String input;
+			out.println("\nEnter Admin Password: ");
+			input = tempIn.readLine();
+			if(input.equals(Server.adminPassword)){
+				System.out.println("Correct Admin Password");
+			}else{
+				out.println("\nPASSWORD WAS NOT CORRECT");
+			}
+			boolean clientKicked = false;
+			for(Client c : Server.clients){
+				if(c.getUserName().equals(userName)){
+					PrintWriter tempOut = new PrintWriter(c.getSocket().getOutputStream(), true);
+					tempOut.println("\nYou have been kicked from the server by an admin");
+					tempOut.println("Exit");
+					Server.clients.removeElement(c);
+					clientKicked = true;
+					broadcastMessage(userName + " has been kicked from the server");
+				}
+			}
+			if(!clientKicked){
+				out.println("No User found by that name to kick from server");
+			}
+		}catch(IOException e3){
+			System.err.println("Error in method: kickUser");
+		}
+	}
 	private void whisperMessage(String message){
 		try{
 			int userNameStart = message.indexOf(" ");
 			int userNameEnd = message.indexOf(" ", userNameStart + 1);
-			System.out.println(userNameStart + "\n" + userNameEnd);
 			String userName = message.substring(userNameStart + 1, userNameEnd);
 			System.out.println("A message is being whipered to " + userName);
 
@@ -124,7 +167,6 @@ class ClientThread extends Thread{
 
 			for(Client c : Server.clients){
 				if(c.getUserName().equals(userName)){
-					System.out.println("User Found");
 					ClientFound = true;
 					try{
 						String cutMessage = message.substring(userNameEnd);
@@ -137,7 +179,12 @@ class ClientThread extends Thread{
 			} 
 
 			if(!ClientFound){
-				System.out.println("Client Not Found");
+				try{
+					out = new PrintWriter(client.getSocket().getOutputStream(), true);
+					out.println("\nNo user found by the username: " + userName);
+				}catch(IOException e4){
+					System.err.println("Error sending no user found for whisper functionality");
+				}
 			}
 			
 		}catch(IndexOutOfBoundsException e){
@@ -149,6 +196,17 @@ class ClientThread extends Thread{
 				System.out.println("Error Sengin no message attached to whisper");
 			}
 		} 
+	}
+
+	private void sendClientList(Client c){
+		try{
+			out = new PrintWriter(c.getSocket().getOutputStream(), true);
+			for(Client c2 : Server.clients){
+				out.println(c2.getUserName());
+			}
+		}catch(IOException e){
+			System.err.println("Error sending client list");
+		}
 	}
 
 	private void broadcastMessage(String message){

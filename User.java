@@ -49,12 +49,12 @@ public class User{
 
 			new inputThread(socket).start();
 
-			System.out.print("\nMessage: ");
+			System.out.print("\nYou have been accepted to the server\nYou may begin sending messages\n");
 			while((userInput = stdIn.readLine()) != null){
 				out.println(userInput);
-				System.out.print("Message: ");
 
 				if(userInput.equals("Exit")){
+					System.exit(0);
 					break;
 				}
 
@@ -85,6 +85,10 @@ class inputThread extends Thread{
 			String inputLine;
 
 			while((inputLine = in.readLine()) != null){
+				if(inputLine.equals("Exit")){
+					//You have been kicked
+					System.exit(0);
+				}
 				System.out.println(inputLine);
 			}
 
