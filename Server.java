@@ -89,12 +89,13 @@ class ClientThread extends Thread{
 			//Receiving messages from the Client
 			while((receivedMessage = in.readLine()) != null){
 				System.out.println(client.getUserName() + ": " + receivedMessage);
-			//	broadcastMessage("\n" + client.getUserName() + ": " + receivedMessage);
 
 				if(receivedMessage.equals("Exit")){
 					System.out.println(client.getUserName() + " has dissconnected");
 					break;
 				}
+
+				broadcastMessage("\n" + client.getUserName() + ": " + receivedMessage);
 			}
 
 			in.close();
