@@ -93,13 +93,12 @@ class ClientThread extends Thread{
 				if(receivedMessage.equals("Exit")){
 					System.out.println(client.getUserName() + " has dissconnected");
 					break;
-				}
-				else if(receivedMessage.startsWith("/whisper")){
+				}else if(receivedMessage.startsWith("/whisper")){
 					System.out.println(userName + " is trying to whisper");
 					whisperMessage(receivedMessage);
+				}else{
+					broadcastMessage("\n" + client.getUserName() + ": " + receivedMessage);
 				}
-
-				broadcastMessage("\n" + client.getUserName() + ": " + receivedMessage);
 			}
 
 			in.close();
@@ -123,12 +122,19 @@ class ClientThread extends Thread{
 
 			boolean ClientFound = false;
 
-			/*for(Client c : Server.clients){
+			for(Client c : Server.clients){
 				if(c.getUserName().equals(userName)){
 					System.out.println("User Found");
 					ClientFound = true;
+					try{
+						String cutMessage = message.substring(userNameEnd);
+						out = new PrintWriter(c.getSocket().getOutputStream(),true);
+						out.println("\n" + client.getUserName() + " is whispering to you: " + cutMessage);
+					}catch(IOException e3){
+						System.err.println("Error forwarding whisper");
+					}
 				}
-			} */
+			} 
 
 			if(!ClientFound){
 				System.out.println("Client Not Found");
