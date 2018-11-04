@@ -82,17 +82,21 @@ class ClientThread extends Thread{
 			System.out.println(userName + " has joined");
 
 			//Creating a client object, also adds client to static clients vector in this class (in constructor)
-			Client client =	new Client(clientSocket, userName);
+			 client = new Client(clientSocket, userName);
 
 			String receivedMessage;
 
 			//Receiving messages from the Client
 			while((receivedMessage = in.readLine()) != null){
 				System.out.println(client.getUserName() + ": " + receivedMessage);
-
+				
 				if(receivedMessage.equals("Exit")){
 					System.out.println(client.getUserName() + " has dissconnected");
 					break;
+				}
+				else if(receivedMessage.startsWith("/whisper")){
+					System.out.println(userName + " is trying to whisper");
+					whisperMessage(receivedMessage);
 				}
 
 				broadcastMessage("\n" + client.getUserName() + ": " + receivedMessage);
@@ -109,6 +113,38 @@ class ClientThread extends Thread{
 
 	}
 
+	private void whisperMessage(String message){
+		try{
+			int userNameStart = message.indexOf(" ");
+			int userNameEnd = message.indexOf(" ", userNameStart + 1);
+			System.out.println(userNameStart + "\n" + userNameEnd);
+			String userName = message.substring(userNameStart + 1, userNameEnd);
+			System.out.println("A message is being whipered to " + userName);
+
+			boolean ClientFound = false;
+
+			/*for(Client c : Server.clients){
+				if(c.getUserName().equals(userName)){
+					System.out.println("User Found");
+					ClientFound = true;
+				}
+			} */
+
+			if(!ClientFound){
+				System.out.println("Client Not Found");
+			}
+			
+		}catch(IndexOutOfBoundsException e){
+			System.err.println("No Message Attached to Whisper");
+			try{
+				out = new PrintWriter(client.getSocket().getOutputStream(),true);
+				out.println("No Message Attached to Whisper");
+			}catch(IOException e2){
+				System.out.println("Error Sengin no message attached to whisper");
+			}
+		} 
+	}
+
 	private void broadcastMessage(String message){
 		try{
 		for(Client c : Server.clients){
@@ -117,7 +153,7 @@ class ClientThread extends Thread{
 		}
 		}catch(IOException e){
 			System.err.println("Error broadcasting a message to all clients");
-		}
+		   }
 	}
 }
 
