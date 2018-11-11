@@ -68,7 +68,7 @@ public class User{
 			System.out.println(in.readLine());
 			out.println(stdIn.readLine());
 
-			new inputThread(socket).start();
+			new inputThread(socket, AESkey).start();
 			
 			while((userInput = stdIn.readLine()) != null){
 				out.println(AES.encrypt(userInput, AESkey));
@@ -102,9 +102,11 @@ public class User{
 
 class inputThread extends Thread{
 	Socket socket;
+	String AESkey;
 
-	inputThread(Socket socket){
+	inputThread(Socket socket, String AESkey){
 		this.socket = socket;
+		this.AESkey = AESkey;
 	}
 
 	@Override
@@ -115,6 +117,7 @@ class inputThread extends Thread{
 			String inputLine;
 
 			while((inputLine = in.readLine()) != null){
+				inputLine = AES.decrypt(inputLine, AESkey);
 				if(inputLine.equals("Exit")){
 					//You have been kicked
 					System.exit(0);

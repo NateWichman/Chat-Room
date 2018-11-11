@@ -98,17 +98,17 @@ class ClientThread extends Thread{
 
 			out.println(encrpytedString);
 
-			out.println("Enter a UserName: ");
+			out.println(AES.encrypt("Enter a UserName: ", AESkey));
 			String userName = in.readLine(); 
 			System.out.println(userName + " has joined");
-			out.println("\n\nWelcome to the Server!");
-			out.println("Type any message and hit ENTER to send to all users");
-			out.println("/list: Displays a list of all connected users");
-			out.println("/whisper username: Sends a message only to the selected user");
-			out.println("/kick username: Kicks a user (requires admin password)");
-			out.println("\n\n");
+			out.println(AES.encrypt("\n\nWelcome to the Server!", AESkey));
+			out.println(AES.encrypt("Type any message and hit ENTER to send to all users", AESkey));
+			out.println(AES.encrypt("/list: Displays a list of all connected users", AESkey));
+			out.println(AES.encrypt("/whisper username: Sends a message only to the selected user", AESkey));
+			out.println(AES.encrypt("/kick username: Kicks a user (requires admin password)", AESkey));
+			out.println(AES.encrypt("\n\n", AESkey));
 			//Creating a client object, also adds client to static clients vector in this class (in constructor)
-			 client = new Client(clientSocket, userName);
+			 client = new Client(clientSocket, userName, AESkey);
 
 			String receivedMessage;
 
@@ -154,31 +154,31 @@ class ClientThread extends Thread{
 				int userNameEnd = message.indexOf(" ", userNameStart + 1);
 				userName = message.substring(userNameStart + 1, userNameEnd);
 			}catch(IndexOutOfBoundsException e){
-				out.println("Incorrect kick format, use /kick username");
+				out.println(AES.encrypt("Incorrect kick format, use /kick username", client.getAESkey()));
 				return;
 			}
 			System.out.println("Recieved Correct kick command");
 			String input;
-			out.println("\nEnter Admin Password: ");
-			input = tempIn.readLine();
+			out.println(AES.encrypt("\nEnter Admin Password: ", client.getAESkey()));
+			input = AES.decrypt(tempIn.readLine(), client.getAESkey());
 			if(input.equals(Server.adminPassword)){
 				System.out.println("Correct Admin Password");
 			}else{
-				out.println("\nPASSWORD WAS NOT CORRECT");
+				out.println(AES.encrypt("\nPASSWORD WAS NOT CORRECT", client.getAESkey()));
 			}
 			boolean clientKicked = false;
 			for(Client c : Server.clients){
 				if(c.getUserName().equals(userName)){
 					PrintWriter tempOut = new PrintWriter(c.getSocket().getOutputStream(), true);
-					tempOut.println("\nYou have been kicked from the server by an admin");
-					tempOut.println("Exit");
+					tempOut.println(AES.encrypt("\nYou have been kicked from the server by an admin", c.getAESkey()));
+					tempOut.println(AES.encrypt("Exit", c.getAESkey()));
 					Server.clients.removeElement(c);
 					clientKicked = true;
 					broadcastMessage(userName + " has been kicked from the server");
 				}
 			}
 			if(!clientKicked){
-				out.println("No User found by that name to kick from server");
+				out.println(AES.encrypt("No User found by that name to kick from server", client.getAESkey()));
 			}
 		}catch(IOException e3){
 			System.err.println("Error in method: kickUser");
@@ -199,7 +199,7 @@ class ClientThread extends Thread{
 					try{
 						String cutMessage = message.substring(userNameEnd);
 						out = new PrintWriter(c.getSocket().getOutputStream(),true);
-						out.println("\n" + client.getUserName() + " is whispering to you: " + cutMessage);
+						out.println(AES.encrypt(("\n" + client.getUserName() + " is whispering to you: " + cutMessage), c.getAESkey()));
 					}catch(IOException e3){
 						System.err.println("Error forwarding whisper");
 					}
@@ -209,7 +209,7 @@ class ClientThread extends Thread{
 			if(!ClientFound){
 				try{
 					out = new PrintWriter(client.getSocket().getOutputStream(), true);
-					out.println("\nNo user found by the username: " + userName);
+					out.println(AES.encrypt(("\nNo user found by the username: " + userName), client.getAESkey()));
 				}catch(IOException e4){
 					System.err.println("Error sending no user found for whisper functionality");
 				}
@@ -219,7 +219,7 @@ class ClientThread extends Thread{
 			System.err.println("No Message Attached to Whisper");
 			try{
 				out = new PrintWriter(client.getSocket().getOutputStream(),true);
-				out.println("No Message Attached to Whisper");
+				out.println(AES.encrypt("No Message Attached to Whisper", client.getAESkey()));
 			}catch(IOException e2){
 				System.out.println("Error Sengin no message attached to whisper");
 			}
@@ -229,9 +229,9 @@ class ClientThread extends Thread{
 	private void sendClientList(Client c){
 		try{
 			out = new PrintWriter(c.getSocket().getOutputStream(), true);
-			out.println("\nUSERS:");
+			out.println(AES.encrypt("\nUSERS:", c.getAESkey()));
 			for(Client c2 : Server.clients){
-				out.println("	" + c2.getUserName());
+				out.println(AES.encrypt(("	" + c2.getUserName()), c.getAESkey()));
 			}
 		}catch(IOException e){
 			System.err.println("Error sending client list");
@@ -242,7 +242,7 @@ class ClientThread extends Thread{
 		try{
 		for(Client c : Server.clients){
 			out =  new PrintWriter(c.getSocket().getOutputStream(), true);
-			out.println(message);
+			out.println(AES.encrypt(message, c.getAESkey()));
 		}
 		}catch(IOException e){
 			System.err.println("Error broadcasting a message to all clients");
@@ -253,10 +253,12 @@ class ClientThread extends Thread{
 class Client{
 	private Socket socket;
 	private String userName;
+	private String AESkey;
 
-	Client(Socket socket, String userName){
+	Client(Socket socket, String userName, String AESkey){
 		this.socket = socket;
 		this.userName = userName;
+		this.AESkey = AESkey;
 		Server.clients.addElement(this);
 	}
 
@@ -266,6 +268,10 @@ class Client{
 
 	public String getUserName(){
 		return userName;
+	}
+
+	public String getAESkey(){
+		return AESkey;
 	}
 }
 
