@@ -1,7 +1,17 @@
+
 import java.io.*;
 import java.net.*;
 import java.util.Scanner;
 import java.util.Vector;
+
+import java.io.UnsupportedEncodingException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
+import java.util.Base64;
+ 
+import javax.crypto.Cipher;
+import javax.crypto.spec.SecretKeySpec;
 /****************************************************
  	Runs a basic chat room server. Allows for 
 multiple users to connect at once. Allows users to
@@ -78,10 +88,25 @@ class ClientThread extends Thread{
 	@Override
 	public void run(){
 		try{
+			//Receiving AES key from client
+			String AESkey = in.readLine();
+			System.out.println("AESkey received: " + AESkey);
+
+			String originalString = "Hola Mundo!";
+			String encrpytedString = AES.encrypt(originalString, AESkey);
+			System.out.println("Encrypting: " + originalString + " to: " + encrpytedString);
+
+			out.println(encrpytedString);
+
 			out.println("Enter a UserName: ");
 			String userName = in.readLine(); 
 			System.out.println(userName + " has joined");
-
+			out.println("\n\nWelcome to the Server!");
+			out.println("Type any message and hit ENTER to send to all users");
+			out.println("/list: Displays a list of all connected users");
+			out.println("/whisper username: Sends a message only to the selected user");
+			out.println("/kick username: Kicks a user (requires admin password)");
+			out.println("\n\n");
 			//Creating a client object, also adds client to static clients vector in this class (in constructor)
 			 client = new Client(clientSocket, userName);
 
@@ -89,6 +114,9 @@ class ClientThread extends Thread{
 
 			//Receiving messages from the Client
 			while((receivedMessage = in.readLine()) != null){
+				System.out.println("Encrypted Message Received: " + receivedMessage);
+				receivedMessage = AES.decrypt(receivedMessage, AESkey);
+				System.out.println("Decrypted to: " + receivedMessage);
 				out = new PrintWriter(client.getSocket().getOutputStream(), true);
 				System.out.println(client.getUserName() + ": " + receivedMessage);
 				
@@ -201,9 +229,9 @@ class ClientThread extends Thread{
 	private void sendClientList(Client c){
 		try{
 			out = new PrintWriter(c.getSocket().getOutputStream(), true);
-			out.println("");
+			out.println("\nUSERS:");
 			for(Client c2 : Server.clients){
-				out.println(c2.getUserName());
+				out.println("	" + c2.getUserName());
 			}
 		}catch(IOException e){
 			System.err.println("Error sending client list");
@@ -240,3 +268,60 @@ class Client{
 		return userName;
 	}
 }
+
+class AES {
+ 
+    private static SecretKeySpec secretKey;
+    private static byte[] key;
+ 
+    public static void setKey(String myKey)
+    {
+        MessageDigest sha = null;
+        try {
+            key = myKey.getBytes("UTF-8");
+            sha = MessageDigest.getInstance("SHA-1");
+            key = sha.digest(key);
+            key = Arrays.copyOf(key, 16);
+            secretKey = new SecretKeySpec(key, "AES");
+        }
+        catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        }
+        catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
+    }
+ 
+    public static String encrypt(String strToEncrypt, String secret)
+    {
+        try
+        {
+            setKey(secret);
+            Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
+            cipher.init(Cipher.ENCRYPT_MODE, secretKey);
+            return Base64.getEncoder().encodeToString(cipher.doFinal(strToEncrypt.getBytes("UTF-8")));
+        }
+        catch (Exception e)
+        {
+            System.out.println("Error while encrypting: " + e.toString());
+        }
+        return null;
+    }
+ 
+    public static String decrypt(String strToDecrypt, String secret)
+    {
+        try
+        {
+            setKey(secret);
+            Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5PADDING");
+            cipher.init(Cipher.DECRYPT_MODE, secretKey);
+            return new String(cipher.doFinal(Base64.getDecoder().decode(strToDecrypt)));
+        }
+        catch (Exception e)
+        {
+            System.out.println("Error while decrypting: " + e.toString());
+        }
+        return null;
+    }
+}
+
