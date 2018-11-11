@@ -12,6 +12,13 @@ import javax.crypto.spec.SecretKeySpec;
 import java.util.Random;
 import java.nio.charset.Charset;
 
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.io.ObjectInputStream;
+
 
 public class User{
 	
@@ -54,8 +61,14 @@ public class User{
 			stdIn = new BufferedReader(
 					new InputStreamReader(System.in));
 
-			//System.out.print(in.readLine());
-		//	out.println(stdIn.readLine());
+			
+			PublicKey publicKey = null;
+			ObjectInputStream rsaKeyStream = new ObjectInputStream(socket.getInputStream());
+			try{
+				publicKey = (PublicKey) rsaKeyStream.readObject();
+			}catch(Exception ex){
+			}
+			System.out.println("Received Public key: " + publicKey); 
 
 			String AESkey = generateRandomAESkey();
 			System.out.println("Generated AES key: " + AESkey);
@@ -186,4 +199,28 @@ class AES {
         }
         return null;
     }
+}
+
+class RSA {
+	
+	public static KeyPair buildKeyPair() throws NoSuchAlgorithmException{
+		final int keySize = 2048;
+		KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
+		keyPairGenerator.initialize(keySize);
+		return keyPairGenerator.genKeyPair();
+	}
+
+	public static byte[] encrypt(PublicKey publicKey, String message) throws Exception{
+		Cipher cipher = Cipher.getInstance("RSA");
+		cipher.init(Cipher.ENCRYPT_MODE, publicKey);
+
+		return cipher.doFinal(message.getBytes());
+	}
+
+	public static byte[] decrypt(PrivateKey privateKey, byte[] encrypted) throws Exception{
+		Cipher cipher = Cipher.getInstance("RSA");
+		cipher.init(Cipher.DECRYPT_MODE, privateKey);
+
+		return cipher.doFinal(encrypted);
+	}
 }

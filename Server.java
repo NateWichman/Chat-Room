@@ -12,6 +12,12 @@ import java.util.Base64;
  
 import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;
+
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+
 /****************************************************
  	Runs a basic chat room server. Allows for 
 multiple users to connect at once. Allows users to
@@ -40,6 +46,21 @@ public class Server{
 		//Setting port number
 		portNumber = 9876;
 		
+		KeyPair keyPair = null;
+		PrivateKey privateKey = null;
+		PublicKey publicKey = null;
+
+		try{
+			keyPair = RSA.buildKeyPair();
+			privateKey = keyPair.getPrivate();
+			publicKey = keyPair.getPublic();
+		}catch(NoSuchAlgorithmException e){
+			System.err.println("ERROR creating RSA keys");
+			System.exit(1);
+		}catch(Exception e2){
+		}
+
+		
 		//Attaching the Server Socket to the port number
 		try{
 			serverSocket = new ServerSocket(portNumber);
@@ -63,7 +84,7 @@ public class Server{
 			}
 			/*Starting a new client thread to manage this 
 			client, so we can wait for a new client in this loop */
-			new ClientThread(clientSocket).start();
+			new ClientThread(clientSocket, publicKey).start();
 		}
 	}
 }
@@ -72,10 +93,13 @@ class ClientThread extends Thread{
 	private Client client;
 	private Socket clientSocket;
 	private PrintWriter out;
+	private PublicKey publicKey;
 	BufferedReader in;
 
-	ClientThread(Socket clientSocket){
+	ClientThread(Socket clientSocket, PublicKey publicKey){
 		this.clientSocket = clientSocket;
+		this.publicKey = publicKey;
+
 		try{
 			out = new PrintWriter(clientSocket.getOutputStream(),true);
 			in = new BufferedReader(
@@ -87,7 +111,12 @@ class ClientThread extends Thread{
 
 	@Override
 	public void run(){
-		try{
+		try{	
+			ObjectOutputStream rsaOutputStream =
+				new ObjectOutputStream(clientSocket.getOutputStream());
+			//Sending RSA public key
+			rsaOutputStream.writeObject(publicKey);
+
 			//Receiving AES key from client
 			String AESkey = in.readLine();
 			System.out.println("AESkey received: " + AESkey);
