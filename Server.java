@@ -84,7 +84,7 @@ public class Server{
 			}
 			/*Starting a new client thread to manage this 
 			client, so we can wait for a new client in this loop */
-			new ClientThread(clientSocket, publicKey).start();
+			new ClientThread(clientSocket, publicKey, privateKey).start();
 		}
 	}
 }
@@ -94,11 +94,13 @@ class ClientThread extends Thread{
 	private Socket clientSocket;
 	private PrintWriter out;
 	private PublicKey publicKey;
+	private PrivateKey privateKey;
 	BufferedReader in;
 
-	ClientThread(Socket clientSocket, PublicKey publicKey){
+	ClientThread(Socket clientSocket, PublicKey publicKey, PrivateKey privateKey){
 		this.clientSocket = clientSocket;
 		this.publicKey = publicKey;
+		this.privateKey = privateKey;
 
 		try{
 			out = new PrintWriter(clientSocket.getOutputStream(),true);
@@ -117,9 +119,30 @@ class ClientThread extends Thread{
 			//Sending RSA public key
 			rsaOutputStream.writeObject(publicKey);
 
-			//Receiving AES key from client
-			String AESkey = in.readLine();
-			System.out.println("AESkey received: " + AESkey);
+			//Receiving Encrypted AES key from client
+			//String encryptedAESkey = in.readLine();
+			DataInputStream dIn = new DataInputStream(clientSocket.getInputStream());
+			int length = dIn.readInt();
+			byte[] encryptedAESkey = null;
+			if(length > 0){
+				encryptedAESkey = new byte[length];
+				dIn.readFully(encryptedAESkey, 0, encryptedAESkey.length);
+			}
+
+			
+			//Decrypting AES key with RSA private key
+			String AESkey = null;
+			try{
+			//	byte[] temp = encryptedAESkey.getBytes();
+				System.out.println("Size of temp: " + encryptedAESkey.length);
+				System.out.println("Encryped AES key recived: " + new String(encryptedAESkey));
+				byte[] temp2 = RSA.decrypt(privateKey, encryptedAESkey);
+				AESkey = new String(temp2);
+			}catch(Exception ex){
+				System.err.println("Error Decrypting AES key: " + ex);
+			}
+
+			System.out.println("Decrypted AESkey: " + AESkey);
 
 			String originalString = "Hola Mundo!";
 			String encrpytedString = AES.encrypt(originalString, AESkey);

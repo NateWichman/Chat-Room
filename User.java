@@ -61,7 +61,7 @@ public class User{
 			stdIn = new BufferedReader(
 					new InputStreamReader(System.in));
 
-			
+			//Receiving RSA public key from the server
 			PublicKey publicKey = null;
 			ObjectInputStream rsaKeyStream = new ObjectInputStream(socket.getInputStream());
 			try{
@@ -69,10 +69,33 @@ public class User{
 			}catch(Exception ex){
 			}
 			System.out.println("Received Public key: " + publicKey); 
+			
+		
 
+			//Creating random AES key
 			String AESkey = generateRandomAESkey();
 			System.out.println("Generated AES key: " + AESkey);
-			out.println(AESkey);
+
+			//Encrypting AES key
+			try{
+				byte[] temp  = RSA.encrypt(publicKey, AESkey);
+				System.out.println("Size of temp: " + temp.length);
+				String encryptedAESkey = new String(temp);
+				System.out.println("Encrypted AES using RSA public key from server: " + encryptedAESkey);
+
+				//Sending encrypted AES key
+			       //	out.println(encryptedAESkey);
+			       DataOutputStream dOut = new DataOutputStream(socket.getOutputStream());
+			       dOut.writeInt(temp.length);
+			       dOut.write(temp);
+			}catch(Exception ex){
+				System.err.println("Error with Encrypting AES key: " + ex);
+				System.exit(1);
+			}
+
+			
+
+		//	out.println(AESkey);
 			String encrpytedString = in.readLine();
 			System.out.println("Received Encrpyted String: " + encrpytedString);
 			String decryptedString = AES.decrypt(encrpytedString, AESkey);
