@@ -45,12 +45,14 @@ public class Server{
 
 		//Setting port number
 		portNumber = 9876;
-		
+
+		/** RSA key material **/
 		KeyPair keyPair = null;
 		PrivateKey privateKey = null;
 		PublicKey publicKey = null;
 
 		try{
+			//Creating key pairs, see class RSA for more information
 			keyPair = RSA.buildKeyPair();
 			privateKey = keyPair.getPrivate();
 			publicKey = keyPair.getPublic();
@@ -103,7 +105,9 @@ class ClientThread extends Thread{
 		this.privateKey = privateKey;
 
 		try{
+			//For sending information
 			out = new PrintWriter(clientSocket.getOutputStream(),true);
+			//for receiving information
 			in = new BufferedReader(
 					new InputStreamReader(clientSocket.getInputStream()));
 		}catch(IOException e){
@@ -114,13 +118,15 @@ class ClientThread extends Thread{
 	@Override
 	public void run(){
 		try{	
+			//For sending an object instead of text, in this case the RSA public key
 			ObjectOutputStream rsaOutputStream =
 				new ObjectOutputStream(clientSocket.getOutputStream());
+
 			//Sending RSA public key
+			System.out.println("\nSending RSA public key: " + publicKey);
 			rsaOutputStream.writeObject(publicKey);
 
 			//Receiving Encrypted AES key from client
-			//String encryptedAESkey = in.readLine();
 			DataInputStream dIn = new DataInputStream(clientSocket.getInputStream());
 			int length = dIn.readInt();
 			byte[] encryptedAESkey = null;
@@ -133,23 +139,22 @@ class ClientThread extends Thread{
 			//Decrypting AES key with RSA private key
 			String AESkey = null;
 			try{
-			//	byte[] temp = encryptedAESkey.getBytes();
-				System.out.println("Size of temp: " + encryptedAESkey.length);
-				System.out.println("Encryped AES key recived: " + new String(encryptedAESkey));
-				byte[] temp2 = RSA.decrypt(privateKey, encryptedAESkey);
-				AESkey = new String(temp2);
+				System.out.println("\nEncryped AES key recived from client: " + new String(encryptedAESkey));
+				byte[] temp = RSA.decrypt(privateKey, encryptedAESkey);
+				AESkey = new String(temp);
 			}catch(Exception ex){
-				System.err.println("Error Decrypting AES key: " + ex);
+				System.err.println("\nError Decrypting AES key: " + ex);
 			}
 
-			System.out.println("Decrypted AESkey: " + AESkey);
-
+			System.out.println("\nDecrypted AESkey: " + AESkey);
+			
+			//Sending a tester string to make sure decryption and encryption on both ends works
 			String originalString = "Hola Mundo!";
 			String encrpytedString = AES.encrypt(originalString, AESkey);
-			System.out.println("Encrypting: " + originalString + " to: " + encrpytedString);
-
+			System.out.println("\nEncrypting: " + originalString + "\nto: " + encrpytedString);
 			out.println(encrpytedString);
 
+			//Getting username
 			out.println(AES.encrypt("Enter a UserName: ", AESkey));
 			String userName = in.readLine(); 
 			System.out.println(userName + " has joined");
@@ -159,16 +164,23 @@ class ClientThread extends Thread{
 			out.println(AES.encrypt("/whisper username: Sends a message only to the selected user", AESkey));
 			out.println(AES.encrypt("/kick username: Kicks a user (requires admin password)", AESkey));
 			out.println(AES.encrypt("\n\n", AESkey));
+
 			//Creating a client object, also adds client to static clients vector in this class (in constructor)
 			 client = new Client(clientSocket, userName, AESkey);
 
+		 	//To hold messages sent from this particular client
 			String receivedMessage;
 
 			//Receiving messages from the Client
 			while((receivedMessage = in.readLine()) != null){
 				System.out.println("Encrypted Message Received: " + receivedMessage);
+
+				//Decrypting message with AES key
 				receivedMessage = AES.decrypt(receivedMessage, AESkey);
 				System.out.println("Decrypted to: " + receivedMessage);
+
+				/*Reseting printwriter to connect to this threads client just in case it was replaced in
+				a different method. */
 				out = new PrintWriter(client.getSocket().getOutputStream(), true);
 				System.out.println(client.getUserName() + ": " + receivedMessage);
 				
@@ -195,8 +207,15 @@ class ClientThread extends Thread{
 		}
 
 	}
+	/****************************************************
+	 This method kicks a user of the chat by parsing the
+	message parameter.
+
+	@Param message of the format "/kick username "
+	 * ***********************************************/
 	private void kickUser(String message){
 		try{
+			//Setting the printwriter to the client who sent the kick request
 			out = new PrintWriter(client.getSocket().getOutputStream(), true);
 			BufferedReader tempIn = new BufferedReader(
 					new InputStreamReader(client.getSocket().getInputStream()));
@@ -212,6 +231,8 @@ class ClientThread extends Thread{
 			System.out.println("Recieved Correct kick command");
 			String input;
 			out.println(AES.encrypt("\nEnter Admin Password: ", client.getAESkey()));
+
+			//Receiving attempted Admin password
 			input = AES.decrypt(tempIn.readLine(), client.getAESkey());
 			if(input.equals(Server.adminPassword)){
 				System.out.println("Correct Admin Password");
@@ -219,6 +240,8 @@ class ClientThread extends Thread{
 				out.println(AES.encrypt("\nPASSWORD WAS NOT CORRECT", client.getAESkey()));
 			}
 			boolean clientKicked = false;
+
+			//Searching through the client vector to see if one by that name exists, if so removing them
 			for(Client c : Server.clients){
 				if(c.getUserName().equals(userName)){
 					PrintWriter tempOut = new PrintWriter(c.getSocket().getOutputStream(), true);
@@ -236,6 +259,12 @@ class ClientThread extends Thread{
 			System.err.println("Error in method: kickUser");
 		}
 	}
+	/****************************************************
+	 *Sends a message to just one particular user instead
+	 of broadcasting it to all users
+
+	 @param message of the format "/whisper username message"
+	 * ************************************************/
 	private void whisperMessage(String message){
 		try{
 			int userNameStart = message.indexOf(" ");
@@ -244,7 +273,8 @@ class ClientThread extends Thread{
 			System.out.println("A message is being whipered to " + userName);
 
 			boolean ClientFound = false;
-
+			
+			//Searching for the requested user to whisper to
 			for(Client c : Server.clients){
 				if(c.getUserName().equals(userName)){
 					ClientFound = true;
@@ -278,10 +308,17 @@ class ClientThread extends Thread{
 		} 
 	}
 
+	/****************************************
+	 *Sends a list of all the clients connected
+	 to the server to the client requesting it.
+
+	 @param a client to send it to
+	 * *************************************/
 	private void sendClientList(Client c){
 		try{
 			out = new PrintWriter(c.getSocket().getOutputStream(), true);
 			out.println(AES.encrypt("\nUSERS:", c.getAESkey()));
+			//Sending each client at a time
 			for(Client c2 : Server.clients){
 				out.println(AES.encrypt(("	" + c2.getUserName()), c.getAESkey()));
 			}
@@ -290,8 +327,15 @@ class ClientThread extends Thread{
 		}
 	}
 
+	/**********************************************
+	 *Sends a message to all users connected to the
+	 server
+
+	 @param message to be broadcasted
+	 * ******************************************/
 	private void broadcastMessage(String message){
 		try{
+		//Sending message to each client in the clients vector
 		for(Client c : Server.clients){
 			out =  new PrintWriter(c.getSocket().getOutputStream(), true);
 			out.println(AES.encrypt(message, c.getAESkey()));
@@ -302,6 +346,11 @@ class ClientThread extends Thread{
 	}
 }
 
+/*******************************************
+ *This class is for creating client objects.
+ each client will hold its socket, username,
+ and AES key.
+ * ***************************************/
 class Client{
 	private Socket socket;
 	private String userName;
@@ -327,6 +376,11 @@ class Client{
 	}
 }
 
+/*****************************************
+ *Runs AES algorithms
+
+source: https://howtodoinjava.com/security/java-aes-encryption-example/
+ * **************************************/
 class AES {
  
     private static SecretKeySpec secretKey;

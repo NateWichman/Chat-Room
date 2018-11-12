@@ -19,7 +19,15 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.io.ObjectInputStream;
 
+/******************************************************
+ *Client class to connect to the Server running a chat
+ program. The user can receive messages, send messages
+ to a particular user or broadcast them to the entire
+ group, among other functionality
 
+ @author Nathan Wichman
+ @version fall 2018
+ * **************************************************/
 public class User{
 	
 	public static void main(String[] args){
@@ -68,23 +76,21 @@ public class User{
 				publicKey = (PublicKey) rsaKeyStream.readObject();
 			}catch(Exception ex){
 			}
-			System.out.println("Received Public key: " + publicKey); 
+			System.out.println("\nReceived Public key: " + publicKey); 
 			
 		
 
 			//Creating random AES key
 			String AESkey = generateRandomAESkey();
-			System.out.println("Generated AES key: " + AESkey);
+			System.out.println("\nGenerated AES key: " + AESkey);
 
 			//Encrypting AES key
 			try{
 				byte[] temp  = RSA.encrypt(publicKey, AESkey);
-				System.out.println("Size of temp: " + temp.length);
 				String encryptedAESkey = new String(temp);
-				System.out.println("Encrypted AES using RSA public key from server: " + encryptedAESkey);
+				System.out.println("\nEncrypted AES using RSA public key from server: " + encryptedAESkey);
 
 				//Sending encrypted AES key
-			       //	out.println(encryptedAESkey);
 			       DataOutputStream dOut = new DataOutputStream(socket.getOutputStream());
 			       dOut.writeInt(temp.length);
 			       dOut.write(temp);
@@ -93,20 +99,24 @@ public class User{
 				System.exit(1);
 			}
 
-			
-
-		//	out.println(AESkey);
+			//Receiving a test string to make sure the encryption algorithms work (Should be "hola mundo!")
 			String encrpytedString = in.readLine();
-			System.out.println("Received Encrpyted String: " + encrpytedString);
+			System.out.println("\nReceived Encrpyted String: " + encrpytedString);
 			String decryptedString = AES.decrypt(encrpytedString, AESkey);
-			System.out.println("Decrypted String: " + decryptedString);
-
+			System.out.println("\nDecrypted String: " + decryptedString);
+			
+			//Receiving a request to choose a username
 			System.out.println(in.readLine());
+
+			//Sending the user inputted username
 			out.println(stdIn.readLine());
 
+			//Starting a thread to receive messages
 			new inputThread(socket, AESkey).start();
 			
+			//While loop to send messages
 			while((userInput = stdIn.readLine()) != null){
+				//Sending encrypted message the user types
 				out.println(AES.encrypt(userInput, AESkey));
 
 
@@ -126,6 +136,13 @@ public class User{
 		}
 	}
 
+	/*****************************************
+	 *Simple helper method to create a random
+	 AES key. It just creates a random string
+	 of length 10 and returns it.
+
+	 @return a random string for the AES key
+	 * **************************************/
 	public static String generateRandomAESkey(){
 		byte[] temp = new byte[10]; //10 char
 		new Random().nextBytes(temp);
@@ -136,10 +153,15 @@ public class User{
 
 }
 
+/**************************************************
+ *Thread class to run in parrell. This one will 
+ recieve messages while the while loop in main
+ will send them.
+ * **********************************************/
 class inputThread extends Thread{
 	Socket socket;
 	String AESkey;
-
+	
 	inputThread(Socket socket, String AESkey){
 		this.socket = socket;
 		this.AESkey = AESkey;
@@ -148,11 +170,15 @@ class inputThread extends Thread{
 	@Override
 	public void run(){
 		try{
+			//For receiving information
 			BufferedReader in = new BufferedReader(
 					new InputStreamReader(socket.getInputStream()));
 			String inputLine;
 
 			while((inputLine = in.readLine()) != null){
+				System.out.println("\nEncrypted Text received: " + inputLine);
+
+				//Decrypting message
 				inputLine = AES.decrypt(inputLine, AESkey);
 				if(inputLine.equals("Exit")){
 					//You have been kicked
@@ -167,7 +193,11 @@ class inputThread extends Thread{
 		}	
 	}
 }
-//Source: https://howtodoinjava.com/security/java-aes-encryption-example/
+
+/**************************************************************************
+ * class to run AES encryption and decryption
+Source: https://howtodoinjava.com/security/java-aes-encryption-example/
+***************************************************************************/
 class AES {
  
     private static SecretKeySpec secretKey;
@@ -224,8 +254,20 @@ class AES {
     }
 }
 
+/*******************************************************
+ *Used in both the Server and the User class. This runs
+ RSA encryption using java's built in KeyPair, Private,
+ and Public Key libraries. It is used to encrypt and
+ decrypt the AES key that the client will make.
+ * ***************************************************/
 class RSA {
 	
+	/******************************
+	 *Creates both the private and 
+	 the public key and returns them
+
+	 @return key pair of both keys
+	 * ***************************/
 	public static KeyPair buildKeyPair() throws NoSuchAlgorithmException{
 		final int keySize = 2048;
 		KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
@@ -233,6 +275,14 @@ class RSA {
 		return keyPairGenerator.genKeyPair();
 	}
 
+	/*****************************
+	 *Encrypts a message and returns
+	 that encrypted byte array
+
+	 @param a public key and a message
+	 	to encrypt
+	 @return An encrypted message
+	 * *************************/
 	public static byte[] encrypt(PublicKey publicKey, String message) throws Exception{
 		Cipher cipher = Cipher.getInstance("RSA");
 		cipher.init(Cipher.ENCRYPT_MODE, publicKey);
@@ -240,6 +290,13 @@ class RSA {
 		return cipher.doFinal(message.getBytes());
 	}
 
+	/*******************************
+	 *Decrypts a byte array.
+
+	 @param the private key and a 
+	 	message to be decrypted
+	 @return the decrypted message
+	 * ***************************/
 	public static byte[] decrypt(PrivateKey privateKey, byte[] encrypted) throws Exception{
 		Cipher cipher = Cipher.getInstance("RSA");
 		cipher.init(Cipher.DECRYPT_MODE, privateKey);
